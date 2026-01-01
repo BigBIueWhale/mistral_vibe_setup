@@ -3,15 +3,20 @@
 This guide assumes you’re on a **Linux box meant to run an agentic coding CLI locally**:
 
 * **OS:** Ubuntu 24.04 LTS
-* **GPU:** NVIDIA **RTX 5090** (i.e., plenty of compute; VRAM is still the real limiter for long context)
-* **Ollama:** already installed as **`ollama-linux-amd64_v0.13.4`** and already running as a user service using your script (so we **do not** redo Ollama setup here).
+* **GPU:** NVIDIA **RTX 5090** (VRAM is still the real limiter for long context)
+* **Ollama:** already installed as **`ollama-linux-amd64_v0.13.4`** and already running as a user service (so we **do not** redo Ollama setup here).
 * **Important networking assumption:** your Ollama server is reachable at the Docker bridge IP (example: `172.17.0.1:11434`), and you can do:
 
   ```bash
   curl -s http://172.17.0.1:11434/v1/models | head
   ```
 
-  (That endpoint is part of Ollama’s OpenAI-compatible API.)
+(That endpoint is part of Ollama’s OpenAI-compatible API.)
+
+### Working directory assumption (important)
+
+All file operations below assume you are **in the folder that contains this README** (the “current folder”).
+Anything created in this guide (Modelfile, etc.) is created **inside this folder**, unless explicitly called out as global (like `~/.vibe`).
 
 ---
 
@@ -22,7 +27,8 @@ You already proved Ollama is working and you already have the model pulled:
 * The model (exact tag you asked for):
   **`devstral-small-2:24b-instruct-2512-q4_K_M`**
 
-We assume Ollama was set up using https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh
+We assume Ollama was set up using:
+`https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh`
 
 What you’re missing is: **making Vibe use the same “good” inference settings you discovered in OpenWebUI**, specifically:
 
@@ -42,19 +48,23 @@ So the correct move is:
 
 ---
 
-# 1) Point your shell at your running Ollama (one-liner)
+# 1) Point the Ollama CLI at your running Ollama (verify connectivity)
 
-Because your Ollama is listening on the Docker bridge IP (not `127.0.0.1`), export this before running Ollama CLI commands:
+The Ollama server is reachable at `172.17.0.1:11434`, so run Ollama CLI commands by setting `OLLAMA_HOST` inline.
 
-```bash
-export OLLAMA_HOST=172.17.0.1:11434
+Navigate to your Ollama binary folder and verify the daemon is reachable:
+
+```terminal
+user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$ OLLAMA_HOST=172.17.0.1:11434 ./ollama ps
+NAME    ID    SIZE    PROCESSOR    CONTEXT    UNTIL
+user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$
 ```
 
-(That matches what you already did successfully.)
+You’ll use the same pattern (`OLLAMA_HOST=... ./ollama ...`) for the CLI commands below.
 
 ---
 
-# 2) Create a “Vibe-tuned” Devstral model in Ollama (this is the key step)
+# 2) Create a “Vibe-tuned” Devstral model in Ollama (key step)
 
 ### Why this is necessary
 
@@ -62,14 +72,13 @@ export OLLAMA_HOST=172.17.0.1:11434
 * **`min_p`**: OpenAI chat-completions doesn’t standardize it; Ollama supports it as a model parameter.
 * **`max_tokens=-1`**: in Ollama terms this is **`num_predict -1`** (“infinite generation”).
 
-### Create a Modelfile
+### Create a Modelfile (in the current folder)
 
-Make a folder anywhere (example uses `~/models/devstral-vibe`):
+From the folder containing this README, create a subfolder for the derived model:
 
 ```bash
-mkdir -p ~/models/devstral-vibe
-cd ~/models/devstral-vibe
-nano Modelfile
+mkdir -p ./devstral-vibe
+nano ./devstral-vibe/Modelfile
 ```
 
 Put this inside (edit nothing except the model name if you want):
@@ -91,35 +100,42 @@ PARAMETER min_p 0.01
 PARAMETER num_predict -1
 ```
 
-Now create the derived model:
+### Create the derived model (using your Ollama CLI in its bin folder)
+
+1. Capture the absolute path to the Modelfile while you’re still in the README folder:
 
 ```bash
-ollama create devstral-vibe -f ./Modelfile
+MODELFILE_PATH="$(pwd)/devstral-vibe/Modelfile"
+```
+
+2. Then go to your Ollama binary folder and run `ollama create` referencing that Modelfile:
+
+```bash
+cd ~/Downloads/ollama-linux-amd64_v0.13.4/bin
+OLLAMA_HOST=172.17.0.1:11434 ./ollama create devstral-vibe -f "$MODELFILE_PATH"
 ```
 
 Verify it:
 
 ```bash
-ollama show --modelfile devstral-vibe
+OLLAMA_HOST=172.17.0.1:11434 ./ollama show --modelfile devstral-vibe
 curl -s http://172.17.0.1:11434/v1/models | grep -n devstral-vibe
 ```
 
 ### Why these exact values (opinionated, for “Claude Code”-like reliability)
 
 * **temperature = 0.2**
-  Mistral explicitly recommends **0.2** for optimal Vibe/Devstral agent behavior. Low temperature reduces “wandering edits” and makes multi-step tool use more consistent.
+  Mistral recommends **0.2** for optimal Vibe/Devstral agent behavior. Low temperature reduces “wandering edits” and makes multi-step tool use more consistent.
 
 * **num_ctx = 104000**
-  Context length is literally “how many tokens the model can hold in memory,” and increasing it increases memory usage.
-  You tested 104k as the practical ceiling on your VRAM, so we treat that as your “safe max.” This is exactly how you get “big-repo awareness” without random CUDA OOMs.
+  Increasing context increases memory usage.
+  You tested 104k as the practical ceiling on your VRAM, so treat that as your “safe max” to avoid random CUDA OOMs.
 
 * **min_p = 0.01**
-  Ollama describes `min_p` as a probability floor relative to the most likely token; it filters ultra-low-probability junk.
-  For coding agents, a tiny `min_p` is a nice compromise: it still keeps outputs conservative, but helps avoid occasional bizarre token choices that can derail tool calls or code edits.
+  A small probability floor helps avoid ultra-low-probability junk tokens without making the model sterile—useful for coding agents and tool calls.
 
 * **num_predict = -1** (infinite)
-  Ollama’s Modelfile docs define `num_predict` and note the default `-1` means infinite generation.
-  This prevents Vibe from being silently cut off mid-refactor.
+  Prevents the CLI from being silently cut off mid-refactor.
 
 ---
 
@@ -143,10 +159,13 @@ uv tool install mistral-vibe
 
 ---
 
-# 4) Configure Vibe to use Ollama (OpenAI-compatible)
+# 4) Configure Vibe to use Ollama (OpenAI-compatible) — GLOBAL on purpose
 
 Vibe reads config from `./.vibe/config.toml` first, then `~/.vibe/config.toml`.
-For a “works everywhere” setup, use the global file:
+
+For this setup, **use the global config** in `~/.vibe/` because the provider endpoint + model + GPU-driven context sizing are machine-level capabilities.
+
+Create the global config:
 
 ```bash
 mkdir -p ~/.vibe
@@ -172,7 +191,7 @@ api_style = "openai"
 backend = "generic"
 
 [[models]]
-name = "devstral-vibe"          # the Ollama model we created
+name = "devstral-vibe"          # the Ollama model you created
 provider = "ollama-docker0"
 alias = "devstral-local"
 temperature = 0.2
@@ -183,9 +202,9 @@ output_price = 0.0
 Why this works:
 
 * Vibe supports custom providers with `api_style = "openai"` and a `generic` backend.
-* Ollama provides OpenAI-compatible endpoints and even notes the API key is “required but ignored.”
+* Ollama provides OpenAI-compatible endpoints and notes the API key is “required but ignored.”
 
-Create the `.env` Vibe expects:
+Create the `.env` Vibe expects (global):
 
 ```bash
 nano ~/.vibe/.env
@@ -207,18 +226,17 @@ OLLAMA_API_KEY=ollama
 
 It **doesn’t truly know** your model’s real limit.
 
-* The OpenAI-style API **does not let clients set context size**, and Ollama tells you to use a Modelfile if you need a larger context.
+* The OpenAI-style API **does not let clients set context size**, and Ollama expects you to use a Modelfile if you need a larger context.
 * So Vibe can only use a **client-side heuristic**: `auto_compact_threshold`.
 
-That’s why we set `auto_compact_threshold = 95000` manually: it forces Vibe to summarize earlier conversation *before* you hit the hard ceiling of `num_ctx=104000`.
+That’s why we set `auto_compact_threshold = 95000`: it forces Vibe to summarize earlier conversation *before* you hit the hard ceiling of `num_ctx=104000`.
 
 ### What happens if the limit is exceeded
 
-Context length is the maximum tokens the model can hold “in memory.”
-If your conversation + tool traces + requested output push beyond the context window, one of two things typically happens in practice:
+If your conversation + tool traces + requested output push beyond the context window, one of two things typically happens:
 
-* **The server rejects the request** with a “maximum context length” style error (common in OpenAI-compatible servers), or
-* **Earlier parts of the conversation stop being available** (effectively “forgotten”), which breaks agent continuity.
+* **The server rejects the request** with a “maximum context length” style error, or
+* **Earlier parts of the conversation stop being available** (“forgotten”), which breaks agent continuity.
 
 So: **compaction is not optional** if you want long-running “Claude Code”-style sessions on big repos.
 
@@ -235,28 +253,22 @@ vibe
 
 Inside Vibe:
 
-* Use `/config` to confirm the active model and provider (Vibe supports switching via `/config`).
+* Use `/config` to confirm the active model and provider.
 * Then give it a real agent task, e.g. “scan repo, propose plan, then implement.”
 
 ---
 
-# 7) Two small, high-impact “Claude Code rival” tweaks (optional but worth it)
+# 7) One small, high-impact “Claude Code rival” tweak (optional but worth it)
 
-### A) Prefer “project-local” config for serious repos
+### Keep temperature low for tool stability
 
-Because Vibe checks `./.vibe/config.toml` first, you can put a repo-specific config there (especially useful if different repos need different compaction thresholds).
-
-### B) Keep temperature low for tool stability
-
-If you ever feel it getting “creative” with commands or edits, don’t raise temperature first—raise **process discipline** (more planning, smaller diffs). Mistral’s own guidance is that **0.2** is the sweet spot for Vibe/Devstral.
+If you ever feel it getting “creative” with commands or edits, don’t raise temperature first—raise **process discipline** (more planning, smaller diffs). Mistral’s guidance is that **0.2** is the sweet spot for Vibe/Devstral.
 
 ---
 
 ## Quick “sanity checklist”
 
 * `curl http://172.17.0.1:11434/v1/models` shows **devstral-vibe**
-* `ollama show --modelfile devstral-vibe` shows `num_ctx 104000`, `min_p 0.01`, `num_predict -1`
+* From your Ollama bin folder: `OLLAMA_HOST=172.17.0.1:11434 ./ollama show --modelfile devstral-vibe` shows `num_ctx 104000`, `min_p 0.01`, `num_predict -1`
 * `~/.vibe/config.toml` points `api_base` to `http://172.17.0.1:11434/v1`
-* `vibe` starts without prompting endlessly for keys (because `~/.vibe/.env` exists)
-
-If you want, paste your `~/.vibe/config.toml` (redact nothing—there are no real secrets for Ollama here), and I’ll tell you if anything will trip Vibe up (especially around model name/alias mismatches).
+* `vibe` starts without repeatedly prompting for keys (because `~/.vibe/.env` exists)
