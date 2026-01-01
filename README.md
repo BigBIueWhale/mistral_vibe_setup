@@ -77,7 +77,7 @@ You’ll use the same pattern (`OLLAMA_HOST=... ./ollama ...`) for the CLI comma
 From the folder containing this README, create a subfolder for the derived model:
 
 ```bash
-mkdir -p ./devstral-vibe
+mkdir ./devstral-vibe
 nano ./devstral-vibe/Modelfile
 ```
 
@@ -168,7 +168,7 @@ For this setup, **use the global config** in `~/.vibe/` because the provider end
 Create the global config:
 
 ```bash
-mkdir -p ~/.vibe
+mkdir ~/.vibe
 nano ~/.vibe/config.toml
 ```
 
