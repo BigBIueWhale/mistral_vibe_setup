@@ -11,7 +11,7 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
   curl -s http://172.17.0.1:11434/v1/models | head
   ```
 
-  (That endpoint is part of Ollama’s OpenAI-compatible API.) ([Ollama Documentation][1])
+  (That endpoint is part of Ollama’s OpenAI-compatible API.)
 
 ---
 
@@ -19,8 +19,10 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 
 You already proved Ollama is working and you already have the model pulled:
 
-* Base model (exact tag you asked for):
+* The model (exact tag you asked for):
   **`devstral-small-2:24b-instruct-2512-q4_K_M`**
+
+We assume Ollama was set up using https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh
 
 What you’re missing is: **making Vibe use the same “good” inference settings you discovered in OpenWebUI**, specifically:
 
@@ -32,7 +34,7 @@ What you’re missing is: **making Vibe use the same “good” inference settin
 }
 ```
 
-The catch: **Vibe talks “OpenAI API.”** And the OpenAI API **does not provide a way to set context size (`num_ctx`)**. Ollama explicitly calls this out: if you need a different context size, you must create a new model via a **Modelfile**. ([Ollama Documentation][1])
+The catch: **Vibe talks “OpenAI API.”** And the OpenAI API **does not provide a way to set context size (`num_ctx`)**. Ollama explicitly calls this out: if you need a different context size, you must create a new model via a **Modelfile**.
 
 So the correct move is:
 
@@ -56,7 +58,7 @@ export OLLAMA_HOST=172.17.0.1:11434
 
 ### Why this is necessary
 
-* **`num_ctx`**: Vibe cannot set it over OpenAI-style requests, so you must bake it into the model. ([Ollama Documentation][1])
+* **`num_ctx`**: Vibe cannot set it over OpenAI-style requests, so you must bake it into the model.
 * **`min_p`**: OpenAI chat-completions doesn’t standardize it; Ollama supports it as a model parameter. ([Ollama Documentation][2])
 * **`max_tokens=-1`**: in Ollama terms this is **`num_predict -1`** (“infinite generation”). ([Ollama Documentation][2])
 
@@ -185,7 +187,7 @@ output_price = 0.0
 Why this works:
 
 * Vibe supports custom providers with `api_style = "openai"` and a `generic` backend. ([Mistral AI Documentation][6])
-* Ollama provides OpenAI-compatible endpoints and even notes the API key is “required but ignored.” ([Ollama Documentation][1])
+* Ollama provides OpenAI-compatible endpoints and even notes the API key is “required but ignored.”
 
 Create the `.env` Vibe expects:
 
@@ -199,7 +201,7 @@ Put:
 OLLAMA_API_KEY=ollama
 ```
 
-(Any string is fine; Ollama ignores it in OpenAI-compat mode.) ([Ollama Documentation][1])
+(Any string is fine; Ollama ignores it in OpenAI-compat mode.)
 
 ---
 
