@@ -59,8 +59,8 @@ export OLLAMA_HOST=172.17.0.1:11434
 ### Why this is necessary
 
 * **`num_ctx`**: Vibe cannot set it over OpenAI-style requests, so you must bake it into the model.
-* **`min_p`**: OpenAI chat-completions doesn’t standardize it; Ollama supports it as a model parameter. ([Ollama Documentation][2])
-* **`max_tokens=-1`**: in Ollama terms this is **`num_predict -1`** (“infinite generation”). ([Ollama Documentation][2])
+* **`min_p`**: OpenAI chat-completions doesn’t standardize it; Ollama supports it as a model parameter.
+* **`max_tokens=-1`**: in Ollama terms this is **`num_predict -1`** (“infinite generation”).
 
 ### Create a Modelfile
 
@@ -107,18 +107,18 @@ curl -s http://172.17.0.1:11434/v1/models | grep -n devstral-vibe
 ### Why these exact values (opinionated, for “Claude Code”-like reliability)
 
 * **temperature = 0.2**
-  Mistral explicitly recommends **0.2** for optimal Vibe/Devstral agent behavior. Low temperature reduces “wandering edits” and makes multi-step tool use more consistent. ([Mistral AI][3])
+  Mistral explicitly recommends **0.2** for optimal Vibe/Devstral agent behavior. Low temperature reduces “wandering edits” and makes multi-step tool use more consistent.
 
 * **num_ctx = 104000**
-  Context length is literally “how many tokens the model can hold in memory,” and increasing it increases memory usage. ([Ollama Documentation][4])
+  Context length is literally “how many tokens the model can hold in memory,” and increasing it increases memory usage.
   You tested 104k as the practical ceiling on your VRAM, so we treat that as your “safe max.” This is exactly how you get “big-repo awareness” without random CUDA OOMs.
 
 * **min_p = 0.01**
-  Ollama describes `min_p` as a probability floor relative to the most likely token; it filters ultra-low-probability junk. ([Ollama Documentation][2])
+  Ollama describes `min_p` as a probability floor relative to the most likely token; it filters ultra-low-probability junk.
   For coding agents, a tiny `min_p` is a nice compromise: it still keeps outputs conservative, but helps avoid occasional bizarre token choices that can derail tool calls or code edits.
 
 * **num_predict = -1** (infinite)
-  Ollama’s Modelfile docs define `num_predict` and note the default `-1` means infinite generation. ([Ollama Documentation][2])
+  Ollama’s Modelfile docs define `num_predict` and note the default `-1` means infinite generation.
   This prevents Vibe from being silently cut off mid-refactor.
 
 ---
@@ -133,8 +133,6 @@ Official options (pick one):
 curl -LsSf https://mistral.ai/vibe/install.sh | bash
 ```
 
-([Mistral AI Documentation][5])
-
 ### Option B (cleanest / reproducible, recommended)
 
 If you use `uv`:
@@ -143,13 +141,11 @@ If you use `uv`:
 uv tool install mistral-vibe
 ```
 
-([Mistral AI Documentation][5])
-
 ---
 
 # 4) Configure Vibe to use Ollama (OpenAI-compatible)
 
-Vibe reads config from `./.vibe/config.toml` first, then `~/.vibe/config.toml`. ([Mistral AI Documentation][6])
+Vibe reads config from `./.vibe/config.toml` first, then `~/.vibe/config.toml`.
 For a “works everywhere” setup, use the global file:
 
 ```bash
@@ -186,7 +182,7 @@ output_price = 0.0
 
 Why this works:
 
-* Vibe supports custom providers with `api_style = "openai"` and a `generic` backend. ([Mistral AI Documentation][6])
+* Vibe supports custom providers with `api_style = "openai"` and a `generic` backend.
 * Ollama provides OpenAI-compatible endpoints and even notes the API key is “required but ignored.”
 
 Create the `.env` Vibe expects:
@@ -211,14 +207,14 @@ OLLAMA_API_KEY=ollama
 
 It **doesn’t truly know** your model’s real limit.
 
-* The OpenAI-style API **does not let clients set context size**, and Ollama tells you to use a Modelfile if you need a larger context. ([Ollama Documentation][1])
+* The OpenAI-style API **does not let clients set context size**, and Ollama tells you to use a Modelfile if you need a larger context.
 * So Vibe can only use a **client-side heuristic**: `auto_compact_threshold`.
 
 That’s why we set `auto_compact_threshold = 95000` manually: it forces Vibe to summarize earlier conversation *before* you hit the hard ceiling of `num_ctx=104000`.
 
 ### What happens if the limit is exceeded
 
-Context length is the maximum tokens the model can hold “in memory.” ([Ollama Documentation][4])
+Context length is the maximum tokens the model can hold “in memory.”
 If your conversation + tool traces + requested output push beyond the context window, one of two things typically happens in practice:
 
 * **The server rejects the request** with a “maximum context length” style error (common in OpenAI-compatible servers), or
@@ -239,7 +235,7 @@ vibe
 
 Inside Vibe:
 
-* Use `/config` to confirm the active model and provider (Vibe supports switching via `/config`). ([Mistral AI Documentation][6])
+* Use `/config` to confirm the active model and provider (Vibe supports switching via `/config`).
 * Then give it a real agent task, e.g. “scan repo, propose plan, then implement.”
 
 ---
@@ -248,11 +244,11 @@ Inside Vibe:
 
 ### A) Prefer “project-local” config for serious repos
 
-Because Vibe checks `./.vibe/config.toml` first, you can put a repo-specific config there (especially useful if different repos need different compaction thresholds). ([Mistral AI Documentation][6])
+Because Vibe checks `./.vibe/config.toml` first, you can put a repo-specific config there (especially useful if different repos need different compaction thresholds).
 
 ### B) Keep temperature low for tool stability
 
-If you ever feel it getting “creative” with commands or edits, don’t raise temperature first—raise **process discipline** (more planning, smaller diffs). Mistral’s own guidance is that **0.2** is the sweet spot for Vibe/Devstral. ([Mistral AI][3])
+If you ever feel it getting “creative” with commands or edits, don’t raise temperature first—raise **process discipline** (more planning, smaller diffs). Mistral’s own guidance is that **0.2** is the sweet spot for Vibe/Devstral.
 
 ---
 
