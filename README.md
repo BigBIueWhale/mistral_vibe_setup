@@ -5,6 +5,7 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 * **OS:** Ubuntu 24.04 LTS
 * **GPU:** NVIDIA **RTX 5090** (VRAM is still the real limiter for long context)
 * **Ollama:** already installed as **`ollama-linux-amd64_v0.13.4`** and already running as a user service (so we **do not** redo Ollama setup here).
+* **Ollama** running under the influence of environment variable `OLLAMA_KEEP_ALIVE=-1` (see https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh). The default of 5 minute timeout causes major issues with Ollama Vibe CLI experiencing error code 400 after a while of usage (probably to do with the way it uses Ollama via OpenAI API).
 * **Important networking assumption:** your Ollama server is reachable at the Docker bridge IP (example: `172.17.0.1:11434`), and you can do:
 
   ```bash
