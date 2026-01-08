@@ -267,6 +267,29 @@ If you ever feel it getting “creative” with commands or edits, don’t raise
 
 ---
 
+# 8) Updating
+
+```shell
+user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$ uv tool upgrade mistral-vibe
+Updated mistral-vibe v1.3.3 -> v1.3.4
+ - anyio==4.12.0
+ + anyio==4.12.1
+ - certifi==2025.11.12
+ + certifi==2026.1.4
+ - jsonschema==4.25.1
+ + jsonschema==4.26.0
+ - mistral-vibe==1.3.3
+ + mistral-vibe==1.3.4
+ - textual==6.11.0
+ + textual==7.0.1
+ + tree-sitter==0.25.2
+ + tree-sitter-bash==0.25.1
+Installed 2 executables: vibe, vibe-acp
+user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$ 
+```
+
+---
+
 ## Quick “sanity checklist”
 
 * `curl http://172.17.0.1:11434/v1/models` shows **devstral-vibe**
