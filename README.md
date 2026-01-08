@@ -14,6 +14,8 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 
 (That endpoint is part of Ollama’s OpenAI-compatible API.)
 
+![Screenshot](./doc/screenshot.png)
+
 ### Working directory assumption (important)
 
 All file operations below assume you are **in the folder that contains this README** (the “current folder”).
