@@ -6,8 +6,8 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 * **GPU:** NVIDIA **RTX 5090** (VRAM is still the real limiter for long context)
 * **Ollama:** already installed as **`ollama-linux-amd64_v0.13.4`** and already running as a user service (so we **do not** redo Ollama setup here).
 * **Ollama** running under the influence of environment variable `OLLAMA_KEEP_ALIVE=-1` (see https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh). The default of 5 minute timeout causes major issues with Ollama Vibe CLI experiencing error code 400 after a while of usage (probably to do with the way it uses Ollama via OpenAI API).
-* **Important networking assumption:** your Ollama server is reachable at the Docker bridge IP (example: `172.17.0.1:11434`), and you can do:
-
+* **Ollama Load Balancer recommended:** To prevent concurrent request issues, we recommend running **[Ollama Load Balancer](https://github.com/BigBIueWhale/ollama_load_balancer)** between Ollama and Mistral Vibe CLI (see section below for details).
+* **Important networking assumption:** your (real) Ollama server is reachable at the Docker bridge IP (example: `172.17.0.1:11434`), and you can do:
   ```bash
   curl -s http://172.17.0.1:11434/v1/models | head
   ```
@@ -15,6 +15,36 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 (That endpoint is part of Ollama’s OpenAI-compatible API.)
 
 ![Screenshot](./doc/screenshot_mistral_vibe_checking_own_version.png)
+
+### Important: Using Ollama Load Balancer to Prevent Concurrent Request Issues
+
+**Mistral Vibe CLI can sometimes overwhelm Ollama with concurrent requests**, causing slowdowns and errors. To solve this, we recommend placing **[Ollama Load Balancer](https://github.com/BigBIueWhale/ollama_load_balancer?tab=readme-ov-file#103)** between Ollama and Mistral Vibe CLI.
+
+The load balancer forces Mistral Vibe to behave nicely by:
+- Providing immediate errors when the server is busy, preventing concurrent requests.
+- Improving overall reliability. Either fail fast or succeed!
+- Load balancing functionality possible, but in this guide we only use with one server.
+
+#### Setting up Ollama Load Balancer
+
+1. Clone and build the load balancer:
+   ```bash
+   git clone https://github.com/BigBIueWhale/ollama_load_balancer.git
+   cd ollama_load_balancer
+   cargo build --release
+   ```
+
+2. Modify `main.rs` to run on `127.0.0.1:11434` instead of `0.0.0.0:11434` so that it doesn't conflict with our real Ollama that's listening on `172.17.0.1:11434`
+
+3. Run the load balancer, pointing it to your Ollama server:
+   ```bash
+   cd /home/user/Desktop/ollama_load_balancer && ./target/release/ollama_load_balancer --server "http://172.17.0.1:11434=RTX5090 Server"
+   ```
+
+4. You'll now be able to configure Mistral Vibe CLI to connect to Ollama Load Balaner- `api_base = "http://127.0.0.1:11434/v1"`. From Mistral Vibe CLI's perspective- Ollama Load Balancer is just a more robust and more strict Ollama!
+
+This setup has been tested and confirmed to resolve connectivity and reliability issues that plagued Mistral Vibe v1.3.4.
+
 
 ### Working directory assumption (important)
 
@@ -122,7 +152,7 @@ Verify it:
 
 ```bash
 OLLAMA_HOST=172.17.0.1:11434 ./ollama show --modelfile devstral-vibe
-curl -s http://172.17.0.1:11434/v1/models | grep -n devstral-vibe
+curl -s http://127.0.0.1:11434/v1/models | grep -n devstral-vibe
 ```
 
 ### Why these exact values (opinionated, for “Claude Code”-like reliability)
@@ -190,7 +220,8 @@ textual_theme = "atom-one-dark"
 
 [[providers]]
 name = "ollama-docker0"
-api_base = "http://172.17.0.1:11434/v1"
+# Point at Ollama Load Balancer
+api_base = "http://127.0.0.1:11434/v1"
 api_key_env_var = "OLLAMA_API_KEY"
 api_style = "openai"
 backend = "generic"
@@ -296,7 +327,7 @@ user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$
 
 ## Quick “sanity checklist”
 
-* `curl http://172.17.0.1:11434/v1/models` shows **devstral-vibe**
+* `curl http://127.0.0.1:11434/v1/models` shows **devstral-vibe**
 * From your Ollama bin folder: `OLLAMA_HOST=172.17.0.1:11434 ./ollama show --modelfile devstral-vibe` shows `num_ctx 104000`, `min_p 0.01`, `num_predict -1`
-* `~/.vibe/config.toml` points `api_base` to `http://172.17.0.1:11434/v1`
+* `~/.vibe/config.toml` points `api_base` to `http://127.0.0.1:11434/v1` (Ollama Load Balancer)
 * `vibe` starts without repeatedly prompting for keys (because `~/.vibe/.env` exists)
