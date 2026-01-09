@@ -186,6 +186,8 @@ auto_compact_threshold = 95000
 
 active_model = "devstral-local"
 
+textual_theme = "atom-one-dark"
+
 [[providers]]
 name = "ollama-docker0"
 api_base = "http://172.17.0.1:11434/v1"
