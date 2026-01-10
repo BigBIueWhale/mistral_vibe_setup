@@ -38,7 +38,7 @@ The load balancer forces Mistral Vibe to behave nicely by:
 
 3. Run the load balancer, pointing it to your Ollama server:
    ```bash
-   cd /home/user/Desktop/ollama_load_balancer && ./target/release/ollama_load_balancer --server "http://172.17.0.1:11434=RTX5090 Server"
+   cd /home/user/Desktop/ollama_load_balancer && ./target/release/ollama_load_balancer --server "http://172.17.0.1:11434=RTX5090 Server" --timeout 120
    ```
 
 4. You'll now be able to configure Mistral Vibe CLI to connect to Ollama Load Balaner- `api_base = "http://127.0.0.1:11434/v1"`. From Mistral Vibe CLI's perspective- Ollama Load Balancer is just a more robust and more strict Ollama!
