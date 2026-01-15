@@ -43,7 +43,7 @@ The load balancer forces Mistral Vibe to behave nicely by:
 
 4. You'll now be able to configure Mistral Vibe CLI to connect to Ollama Load Balaner- `api_base = "http://127.0.0.1:11434/v1"`. From Mistral Vibe CLI's perspective- Ollama Load Balancer is just a more robust and more strict Ollama!
 
-This setup has been tested and confirmed to resolve connectivity and reliability issues that plagued Mistral Vibe v1.3.4.
+This setup has been tested and confirmed to resolve connectivity and reliability issues that plagued Mistral Vibe v1.3.4 (v1.3.5 should be identical).
 
 
 ### Working directory assumption (important)
