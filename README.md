@@ -6,7 +6,7 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 * **GPU:** NVIDIA **RTX 5090** (VRAM is still the real limiter for long context)
 * **Ollama:** already installed as **`ollama-linux-amd64_v0.13.4`** and already running as a user service (so we **do not** redo Ollama setup here).
 * **Ollama** running under the influence of environment variable `OLLAMA_KEEP_ALIVE=-1` (see https://github.com/BigBIueWhale/personal_server/blob/master/install_ollama_user_service.sh). The default of 5 minute timeout causes major issues with Ollama Vibe CLI experiencing error code 400 after a while of usage (probably to do with the way it uses Ollama via OpenAI API).
-* **Ollama Load Balancer recommended:** To prevent concurrent request issues, we recommend running **[Ollama Load Balancer](https://github.com/BigBIueWhale/ollama_load_balancer)** between Ollama and Mistral Vibe CLI (see section below for details).
+* **Ollama Load Balancer (maybe not needed?):** We previously recommended **[Ollama Load Balancer](https://github.com/BigBIueWhale/ollama_load_balancer)** to prevent concurrent request issues, but the slowdowns may have been entirely caused by the [KV cache bug](#critical-ollama-kv-cache-bug-affects-v026-through-v013x) fixed in Ollama v0.14.0.
 * **Important networking assumption:** your (real) Ollama server is reachable at the Docker bridge IP (example: `172.17.0.1:11434`), and you can do:
   ```bash
   curl -s http://172.17.0.1:11434/v1/models | head
@@ -16,9 +16,11 @@ This guide assumes you’re on a **Linux box meant to run an agentic coding CLI 
 
 ![Screenshot](./doc/screenshot_mistral_vibe_checking_own_version.png)
 
-### Important: Using Ollama Load Balancer to Prevent Concurrent Request Issues
+### Using Ollama Load Balancer (Maybe Not Needed?)
 
-**Mistral Vibe CLI can sometimes overwhelm Ollama with concurrent requests**, causing slowdowns and errors. To solve this, we recommend placing **[Ollama Load Balancer](https://github.com/BigBIueWhale/ollama_load_balancer?tab=readme-ov-file#103)** between Ollama and Mistral Vibe CLI.
+**Note:** The slowdowns we originally blamed on concurrent requests may have actually been entirely caused by the [Ollama KV cache bug](#critical-ollama-kv-cache-bug-affects-v026-through-v013x) (fixed in v0.14.0). If you're on Ollama v0.14.0+, Ollama Load Balancer may not be needed at all.
+
+If you still want load balancing for multi-GPU setups, **[Ollama Load Balancer 1.0.4+](https://github.com/BigBIueWhale/ollama_load_balancer)** will support load balancing agentic tool calls much better than earlier versions.
 
 The load balancer forces Mistral Vibe to behave nicely by:
 - Providing immediate errors when the server is busy, preventing concurrent requests.
@@ -43,7 +45,7 @@ The load balancer forces Mistral Vibe to behave nicely by:
 
 4. You'll now be able to configure Mistral Vibe CLI to connect to Ollama Load Balaner- `api_base = "http://127.0.0.1:11434/v1"`. From Mistral Vibe CLI's perspective- Ollama Load Balancer is just a more robust and more strict Ollama!
 
-This setup has been tested and confirmed to resolve connectivity and reliability issues that plagued Mistral Vibe v1.3.4 (v1.3.5 should be identical).
+This setup was tested during Mistral Vibe v1.3.4 (v1.3.5 should be identical), though the issues may have been caused by the KV cache bug rather than concurrent requests.
 
 
 ### Working directory assumption (important)
@@ -325,9 +327,15 @@ user@rtx5090:~/Downloads/ollama-linux-amd64_v0.13.4/bin$
 
 ---
 
-## Quick “sanity checklist”
+## Quick "sanity checklist"
 
 * `curl http://127.0.0.1:11434/v1/models` shows **devstral-vibe**
 * From your Ollama bin folder: `OLLAMA_HOST=172.17.0.1:11434 ./ollama show --modelfile devstral-vibe` shows `num_ctx 104000`, `min_p 0.01`, `num_predict -1`
 * `~/.vibe/config.toml` points `api_base` to `http://127.0.0.1:11434/v1` (Ollama Load Balancer)
 * `vibe` starts without repeatedly prompting for keys (because `~/.vibe/.env` exists)
+
+---
+
+## CRITICAL: Ollama KV Cache Bug (Affects v0.2.6 through v0.13.x)
+
+Ollama v0.2.6-v0.13.x had a bug where tool call arguments rendered as Go maps instead of JSON, causing complete KV cache invalidation after every tool call (10-30+ second delays at 60k+ tokens). **Upgrade to v0.14.0+** to fix. ([Full investigation](https://github.com/BigBIueWhale/vibe_web_terminal/tree/master/doc/ollama_kv_cache_bug_investigation.md))
